@@ -44,11 +44,11 @@ def main():
 
     # Declare some parameters
     rosnode = Node("parameter_tester")
-    rosnode.declare_parameter("/parint1", 1)
-    rosnode.declare_parameter("/parint2", 2)
-    rosnode.declare_parameter("/parbool", False)
-    rosnode.declare_parameter("/parfloat1", 1.23456)
-    rosnode.declare_parameter("/parfloat2", 2.34567)
+    rosnode.declare_parameter("/test", 1)
+    # rosnode.declare_parameter("/parint2", 2)
+    # rosnode.declare_parameter("/parbool", False)
+    # rosnode.declare_parameter("/parfloat1", 1.23456)
+    # rosnode.declare_parameter("/parfloat2", 2.34567)
     
     executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(rosnode)
@@ -59,23 +59,25 @@ def main():
 
     time.sleep(3)
     
-    setparam(rosnode, "/parint1", 10, user_data={"type": Parameter.Type.INTEGER})
-    setparam(rosnode, "/parint2", 30, user_data={"type": Parameter.Type.INTEGER})
+    setparam(rosnode, "/test", 2, user_data={"type": Parameter.Type.INTEGER})
+    # setparam(rosnode, "/parint2", 30, user_data={"type": Parameter.Type.INTEGER})
 
     print(get_params(rosnode))
 
     time.sleep(3)
 
-    setparam(rosnode, "/parfloat1", 123.456, user_data={"type": Parameter.Type.DOUBLE})
-    setparam(rosnode, "/parfloat2", 234.567, user_data={"type": Parameter.Type.DOUBLE})
+    setparam(rosnode, "/test", 3, user_data={"type": Parameter.Type.INTEGER})
+    # setparam(rosnode, "/parfloat1", 123.456, user_data={"type": Parameter.Type.DOUBLE})
+    # setparam(rosnode, "/parfloat2", 234.567, user_data={"type": Parameter.Type.DOUBLE})
     
     print(get_params(rosnode))
 
-    time.sleep(3)
+    # time.sleep(3)
 
-    setparam(rosnode, "/parbool", True, user_data={"type": Parameter.Type.BOOL})
+    # setparam(rosnode, "/test", 2, user_data={"type": Parameter.Type.INTEGER})
+    # setparam(rosnode, "/parbool", True, user_data={"type": Parameter.Type.BOOL})
 
-    print(get_params(rosnode))
+    # print(get_params(rosnode))
 
     try:
         # Keep node alive and handle ROS interactions

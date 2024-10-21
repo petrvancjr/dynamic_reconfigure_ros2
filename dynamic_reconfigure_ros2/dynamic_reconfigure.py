@@ -7,88 +7,104 @@ import dearpygui.dearpygui as dpg
 import threading
 from rclpy.executors import MultiThreadedExecutor
 
-from map_rostype_to_widget import get_widget
-from ros_param_manager import list_remote_parameters, get_remote_parameters, extract_param_value, set_remote_parameters, list_all_rosnodes
+from dynamic_reconfigure_ros2.map_rostype_to_widget import create_widget
+from dynamic_reconfigure_ros2.ros_param_manager import list_remote_parameters, get_remote_parameters, extract_param_value, set_remote_parameters, list_all_rosnodes
 
 UPDATE_PERIOD_FRAMES = 20
+DIV_CHAR = "__"
+WIDTH = 600
+HEIGHT = 600
 
 class DynamicReconfigure(Node):
     def __init__(self):
         super().__init__("dynamic_reconfigure")
-
-
         self.parameter_set_requests = []
-        self.dynamic_reconfigure_group = None  # A group to hold the parameter widgets
-        self.tester_group = None  # A group to hold the parameter widgets
-        self.create_gui()
+        self.node_windows = {}
+        self.create_base_gui()
         self.update_ros_params()
 
-    def create_gui(self):
-        with dpg.window(label="Dynamic Reconfigure", width=300, height=300):
-            # Create a group to hold all parameter widgets, so we can update them
-            self.dynamic_reconfigure_group = dpg.add_group(tag="dynamic_reconfigure_group")
-            self.tester_group = dpg.add_group(tag="tester_group")
+    def create_base_gui(self):
+        dpg.create_context()
+        dpg.create_viewport(title="Dynamic Reconfigure", width=WIDTH, height=WIDTH)
+        dpg.setup_dearpygui()
+        dpg.show_viewport()
+
+    def create_window_for_node(self, node_name):
+        """Creates a new window for a ROS node dynamically."""
+        print("TEST HERE: ", node_name, self.node_windows)
+        if node_name not in self.node_windows:
+            window_tag = f"{node_name}_window"
+            group_tag = f"{node_name}_group"
+            with dpg.window(tag=window_tag, label=node_name, width=WIDTH, height=200):
+                self.node_windows[node_name] = dpg.add_group(tag=group_tag)
+            dpg.set_item_pos(window_tag, [0, (len(self.node_windows)-1) * 220])  # Stacks windows
+
+    def remove_window_for_node(self, node_name):
+        """Removes the window for the specified ROS node."""
+        if node_name in self.node_windows:
+            dpg.delete_item(f"{node_name}_window")
+            del self.node_windows[node_name]
 
     def update_ros_params(self):
-        param_names_in_gui = self.get_gui_param_names()
+        print("\n")
+        param_topic_in_gui = self.get_gui_param_names()
         params_ros = self.get_ros_params()
-        print("====S====")
-        print(params_ros)
-        print("====E====")
         if params_ros is None:
             self.get_logger().info('Warning: No ROS topic online (Parameter Service is not responding)')
             return
 
-        # Update parameters inside the group by adding/removing widgets
+        nodes_in_ros = set([p_server for p_server, _, _, _ in params_ros])
+
+        # Create windows for new nodes
+        for node_name in nodes_in_ros:
+            self.create_window_for_node(node_name)
+        # Remove windows for nodes that are no longer available
+        nodes_in_gui = set(self.node_windows.keys())
+        for node_name in nodes_in_gui - nodes_in_ros:
+            self.remove_window_for_node(node_name)
+
         for p_server, p_name, p_value, p_type in params_ros:
-            if p_server == "dynamic_reconfigure":
-                parent = self.dynamic_reconfigure_group
-            elif p_server == "parameter_tester":
-                parent = self.tester_group
-            else: raise Exception()
+            group_tag = f"{p_server}_group"
+            widget_tag = p_server + DIV_CHAR + p_name
             
-            if p_name in param_names_in_gui:
-                assert dpg.get_item_configuration(p_server+p_name)['user_data']['type'] == p_type, \
+            if widget_tag in param_topic_in_gui:
+                assert dpg.get_item_configuration(widget_tag)['user_data']['type'] == p_type, \
                     "WARN: The parameter found in ROS has different type than previously loaded parameter"
-                param_names_in_gui.remove(p_name)
-                print(f"Externally set {p_name} to {p_value}")
-                dpg.configure_item(p_server+p_name, default_value=p_value)
-                continue
+                param_topic_in_gui.remove(widget_tag)
+                # print(f"Externally set {p_name} to {p_value}")
+                dpg.configure_item(widget_tag, default_value=p_value)
             else:  # Create new param
-                add_widget = get_widget(p_type)
-                print("==addwidget==")
-                print(p_server, p_name, p_value, p_type)
-                print("=============")
-                add_widget(
-                        label=p_server+p_name,
-                        tag=p_server+p_name,
+                create_widget(
+                        type=p_type,
+                        label=widget_tag,
+                        tag=widget_tag,
                         callback=self.set_ros_param_callback,
                         user_data={"name": p_name, "type": p_type, "server": p_server},
                         default_value=p_value,
-                        parent=parent  # Add to the group
+                        parent=group_tag,  # Add to the group
+                        width=100
                     )
 
         # Delete parameters that are no longer declared in ROS, but are in GUI
-        for param_to_delete in param_names_in_gui:
-            dpg.delete_item(p_server+param_to_delete)
+        for topic_to_delete in param_topic_in_gui:
+            dpg.delete_item(topic_to_delete)
 
     def get_gui_param_names(self) -> List[str]:
         """ Returns List of parameter names. """
         ret = []
         for it in dpg.get_all_items():
             if dpg.get_item_configuration(it)['user_data'] is not None:
-                ret.append(dpg.get_item_configuration(it)['user_data']['name'])
+                user_data = dpg.get_item_configuration(it)['user_data']
+                ret.append(user_data['server']+DIV_CHAR+user_data['name'])
         return ret
 
     def set_ros_param_callback(self, parameter_name, parameter_value, user_data):
-        self.set_ros_param(parameter_name, parameter_value, user_data["type"], user_data["server"])
+        self.set_ros_param(user_data["name"], parameter_value, user_data["type"], user_data["server"])
 
     def set_ros_param(self, name: str, value: Any, type: Parameter.Type, server: str):
         """ Value type is based on type (Parameter.Type) """        
-        if not self.has_parameter(name):
-            self.declare_parameter(name, value)  # Declare the parameter
-        
         try:
+            print(f"SET REMOTE PARAM, {name} {value} {type} {server}")
             set_remote_parameters(self, name, value, type, server)
             self.get_logger().info(f"Parameter {name} set to {value}")
         except:
@@ -123,19 +139,17 @@ class DynamicReconfigure(Node):
 
 import time
 def test(rosnode):
-    time.sleep(5)
-    rosnode.set_ros_param(name = "/parint1", value = 2024, type = Parameter.Type.INTEGER)
-    rosnode.set_ros_param(name = "/test2", value = 2025.2, type = Parameter.Type.DOUBLE)
-
+    time.sleep(10)
+    rosnode.set_ros_param(name = "/test", value = 10, type = Parameter.Type.INTEGER, server="parameter_tester")
+    # rosnode.set_ros_param(name = "/parint1", value = 2024, type = Parameter.Type.INTEGER, server="dynamic_reconfigure")
+    # rosnode.set_ros_param(name = "/test2", value = 2025.2, type = Parameter.Type.DOUBLE , server="dynamic_reconfigure")
 
 def main():
     rclpy.init()
 
-    dpg.create_context()
-    dpg.create_viewport(title="Dynamic Reconfigure", width=300, height=300)
-    dpg.setup_dearpygui()
+    
     node = DynamicReconfigure()
-    dpg.show_viewport()
+    
 
     executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(node)
