@@ -14,6 +14,7 @@ UPDATE_PERIOD_FRAMES = 20
 DIV_CHAR = "__"
 WIDTH = 600
 HEIGHT = 600
+WINDOW_HEIGHT = 200
 
 class DynamicReconfigure(Node):
     def __init__(self):
@@ -31,13 +32,12 @@ class DynamicReconfigure(Node):
 
     def create_window_for_node(self, node_name):
         """Creates a new window for a ROS node dynamically."""
-        print("TEST HERE: ", node_name, self.node_windows)
         if node_name not in self.node_windows:
             window_tag = f"{node_name}_window"
             group_tag = f"{node_name}_group"
-            with dpg.window(tag=window_tag, label=node_name, width=WIDTH, height=200):
+            with dpg.window(tag=window_tag, label=node_name, width=WIDTH, height=WINDOW_HEIGHT):
                 self.node_windows[node_name] = dpg.add_group(tag=group_tag)
-            dpg.set_item_pos(window_tag, [0, (len(self.node_windows)-1) * 220])  # Stacks windows
+            dpg.set_item_pos(window_tag, [0, (len(self.node_windows)-1) * WINDOW_HEIGHT])  # Stacks windows
 
     def remove_window_for_node(self, node_name):
         """Removes the window for the specified ROS node."""
@@ -46,7 +46,6 @@ class DynamicReconfigure(Node):
             del self.node_windows[node_name]
 
     def update_ros_params(self):
-        print("\n")
         param_topic_in_gui = self.get_gui_param_names()
         params_ros = self.get_ros_params()
         if params_ros is None:
@@ -82,7 +81,6 @@ class DynamicReconfigure(Node):
                         user_data={"name": p_name, "type": p_type, "server": p_server},
                         default_value=p_value,
                         parent=group_tag,  # Add to the group
-                        width=100
                     )
 
         # Delete parameters that are no longer declared in ROS, but are in GUI
@@ -140,7 +138,8 @@ class DynamicReconfigure(Node):
 import time
 def test(rosnode):
     time.sleep(10)
-    rosnode.set_ros_param(name = "/test", value = 10, type = Parameter.Type.INTEGER, server="parameter_tester")
+    
+    # rosnode.set_ros_param(name = "/test", value = 10, type = Parameter.Type.INTEGER, server="parameter_tester")
     # rosnode.set_ros_param(name = "/parint1", value = 2024, type = Parameter.Type.INTEGER, server="dynamic_reconfigure")
     # rosnode.set_ros_param(name = "/test2", value = 2025.2, type = Parameter.Type.DOUBLE , server="dynamic_reconfigure")
 
@@ -163,7 +162,6 @@ def main():
 
     spinning_thread = threading.Thread(target=test, args=(node, ), daemon=True)
     spinning_thread.start()
-
 
     i = 0
     while dpg.is_dearpygui_running():

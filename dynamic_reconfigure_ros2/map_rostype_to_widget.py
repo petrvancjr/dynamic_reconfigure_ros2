@@ -2,6 +2,10 @@
 from rclpy.parameter import Parameter
 import dearpygui.dearpygui as dpg
 
+SLIDER_MIN_VALUE = 0
+SLIDER_MAX_VALUE = 100
+SLIDER_WIDTH = 100 # px
+
 mapping_rostype_to_widget = {
     Parameter.Type.BOOL: dpg.add_checkbox,
     Parameter.Type.DOUBLE: dpg.add_slider_float,
@@ -19,7 +23,6 @@ def create_widget(
         user_data,
         default_value,
         parent,
-        width,
     ):
     widget = get_widget(type)
 
@@ -40,5 +43,7 @@ def create_widget(
             user_data = user_data,
             default_value = default_value,
             parent = parent,
-            width = width,
+            width = SLIDER_WIDTH,
+            min_value = SLIDER_MIN_VALUE,
+            max_value = SLIDER_MAX_VALUE,
         )

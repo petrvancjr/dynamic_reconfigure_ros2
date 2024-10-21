@@ -15,7 +15,7 @@ def setparam(rosnode, parameter_name, parameter_value, user_data):
         rosnode.declare_parameter(parameter_name, parameter_value)  # Declare the parameter
     
     try:
-        print("setting parameter!!")
+        print("setting parameter!")
         rosnode.set_parameters([rclpy.parameter.Parameter(parameter_name, param_type, parameter_value)])
         rosnode.get_logger().info(f"Parameter {parameter_name} set to {parameter_value}")
     except ParameterNotDeclaredException as e:
@@ -45,10 +45,10 @@ def main():
     # Declare some parameters
     rosnode = Node("parameter_tester")
     rosnode.declare_parameter("/test", 1)
-    # rosnode.declare_parameter("/parint2", 2)
-    # rosnode.declare_parameter("/parbool", False)
-    # rosnode.declare_parameter("/parfloat1", 1.23456)
-    # rosnode.declare_parameter("/parfloat2", 2.34567)
+    rosnode.declare_parameter("/parint2", 2)
+    rosnode.declare_parameter("/parbool", False)
+    rosnode.declare_parameter("/parfloat1", 1.23456)
+    rosnode.declare_parameter("/parfloat2", 2.34567)
     
     executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(rosnode)
@@ -60,24 +60,24 @@ def main():
     time.sleep(3)
     
     setparam(rosnode, "/test", 2, user_data={"type": Parameter.Type.INTEGER})
-    # setparam(rosnode, "/parint2", 30, user_data={"type": Parameter.Type.INTEGER})
+    setparam(rosnode, "/parint2", 30, user_data={"type": Parameter.Type.INTEGER})
 
     print(get_params(rosnode))
 
     time.sleep(3)
 
     setparam(rosnode, "/test", 3, user_data={"type": Parameter.Type.INTEGER})
-    # setparam(rosnode, "/parfloat1", 123.456, user_data={"type": Parameter.Type.DOUBLE})
-    # setparam(rosnode, "/parfloat2", 234.567, user_data={"type": Parameter.Type.DOUBLE})
+    setparam(rosnode, "/parfloat1", 123.456, user_data={"type": Parameter.Type.DOUBLE})
+    setparam(rosnode, "/parfloat2", 234.567, user_data={"type": Parameter.Type.DOUBLE})
     
     print(get_params(rosnode))
 
-    # time.sleep(3)
+    time.sleep(3)
 
-    # setparam(rosnode, "/test", 2, user_data={"type": Parameter.Type.INTEGER})
-    # setparam(rosnode, "/parbool", True, user_data={"type": Parameter.Type.BOOL})
+    setparam(rosnode, "/test", 2, user_data={"type": Parameter.Type.INTEGER})
+    setparam(rosnode, "/parbool", True, user_data={"type": Parameter.Type.BOOL})
 
-    # print(get_params(rosnode))
+    print(get_params(rosnode))
 
     try:
         # Keep node alive and handle ROS interactions

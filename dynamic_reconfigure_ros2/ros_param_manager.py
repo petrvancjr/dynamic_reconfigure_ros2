@@ -13,7 +13,7 @@ def list_all_rosnodes(node):
     names = []
     for name, namespace, full_name in available_nodes:
         names.append(name)
-        print(f"Found node {name} in namespace {namespace} (full name: {full_name}")
+        # print(f"Found node {name} in namespace {namespace} (full name: {full_name}")
     return names
 
 def list_remote_parameters(node, server="parameter_tester"):
