@@ -1,11 +1,11 @@
-from typing import Any, List, Tuple
+from typing import Any, Iterable, List, Tuple
 import rclpy
+from rclpy.node import Node
 from rcl_interfaces.srv import GetParameters, SetParameters, ListParameters
 
 from rcl_interfaces.msg import ParameterType
 from rclpy.parameter import Parameter
-from rcl_interfaces.srv import SetParameters
-from rclpy.parameter import Parameter
+from rcl_interfaces.srv import SetParameters, DescribeParameters
 from ros2node.api import get_node_names
 
 def list_all_rosnodes(node):
@@ -28,11 +28,10 @@ def list_remote_parameters(node, server="parameter_tester"):
     request.prefixes = []
     request.depth = 0  # Depth=0 means all parameters
 
-    future = client.call_async(request)
-    rclpy.spin_until_future_complete(node, future)
+    future = client.call(request)
     return future.result()
 
-def set_remote_parameters(self, param_name, param_value, param_type, server="parameter_tester"):
+def set_remote_parameters(self, param_name, param_value, param_type=None, server="parameter_tester"):
     client = self.create_client(SetParameters, f'/{server}/set_parameters')
     
     while not client.wait_for_service(timeout_sec=1.0):
@@ -41,31 +40,63 @@ def set_remote_parameters(self, param_name, param_value, param_type, server="par
     request = SetParameters.Request()
 
     # Add the new parameter to the request
-    new_param = Parameter(param_name, param_type, param_value)
-    request.parameters.append(new_param.to_parameter_msg())
+    if isinstance(param_name, (list, tuple)):
+        assert param_type==None, "Not Implemented"
+        for param_name_, param_value_ in zip(param_name, param_value):
+            new_param = Parameter(param_name_, type_=None, value=param_value_)
+            request.parameters.append(new_param.to_parameter_msg())
+    else:
+        new_param = Parameter(param_name, type_=param_type, value=param_value)
+        request.parameters.append(new_param.to_parameter_msg())
 
     # Call the service to set the remote parameter
-    future = client.call_async(request)
-    rclpy.spin_until_future_complete(self, future)
-
-    if future.result() is not None:
+    future = client.call(request)
+    
+    if future.results is not None:
         self.get_logger().info(f"Successfully set {param_name} on the remote node")
     else:
         self.get_logger().error(f"Failed to set {param_name} on the remote node")
 
+
 def get_remote_parameters(node, param_names: List[str], server="parameter_tester"):
     """ Get ROS parameters details based on providing parameter names. """
     # Create a client for the 'get_parameters' service
-    client = node.create_client(GetParameters, f'/{server}/get_parameters')
-    while not client.wait_for_service(timeout_sec=0.01):
-        return None
+    destroy_node = False
+    try:
+        if node is None:
+            destroy_node = True
+            node = Node("get_remote_parameters_temporary_node")
+        
+        client = node.create_client(GetParameters, f'/{server}/get_parameters')
 
-    request = GetParameters.Request()
-    request.names = param_names  # Pass the list of parameter names
+        while not client.wait_for_service(timeout_sec=0.01):
+            raise Exception(f"get_remote_parameter() cannot access ROS node name: {server} and its parameter {param_names}")
+            return None
 
-    future = client.call_async(request)
-    rclpy.spin_until_future_complete(node, future)
-    return future.result()
+        request = GetParameters.Request()
+        request.names = param_names  # Pass the list of parameter names
+
+        future = client.call(request)
+        
+        # THIS WAS CHANGED, IT EXTRACTS THE PARAMETER VALUES DIRECTLY!
+        # return future.result()
+        # ADDED:
+        get_result = future #.result()
+        if get_result is None:
+            raise Exception(f"get_remote_parameter() cannot access ROS node name: {server} and its parameter {param_names}")
+            return None
+        ret = []
+        for i in range(len(get_result.values)):
+            value, type = extract_param_value(get_result.values[i])
+            ret.append(value)
+        return ret
+    finally:
+        if destroy_node:
+            node.destroy_node()
+
+def get_remote_parameter(node, param_name: List[str], server="parameter_tester"):
+    return get_remote_parameters(node, [param_name], server)[0]
+
 
 def extract_param_value(pvalue) -> Tuple[Any, Parameter.Type]:
     """ Extract ROS parameter ParameterValue object to the parameter value (e.g., float) and type. """
